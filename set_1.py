@@ -1,7 +1,11 @@
 # challenge 1
-from base64 import b64encode
 import string
+
+from base64 import b64encode
+from binascii import hexlify, unhexlify
+from itertools import cycle
 from subprocess import check_output
+from urllib.request import urlopen
 
 s = '49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d'
 
@@ -26,7 +30,7 @@ for s in list(string.ascii_lowercase + string.ascii_uppercase + string.digits):
     val = [c ^ ord(s) for c in bytes.fromhex(ciphertext)]
     # first we check for weird ASCII values
     if (min(val) > 31) & (max(val) < 123):
-        res = bytes.fromhex(''.join(hex(s)[2:] for s in val))
+        res = bytes(val)
         # then we lazily pipe to a spellcheck program, and count the number of errors
         score = int(check_output(f'echo {res} | hunspell -a | grep "&" | wc -l', shell=True).strip())
         candidates[score] = (s, res)
@@ -34,12 +38,14 @@ for s in list(string.ascii_lowercase + string.ascii_uppercase + string.digits):
 print(candidates[min(candidates.keys())])
 
 # challenge 4
-with open('data.txt', 'r') as f:
-    lines = [bytes.fromhex(l.strip()) for l in f.readlines]
+with urlopen('https://cryptopals.com/static/challenge-data/4.txt') as f:
+    lines = [unhexlify(l.strip()) for l in f.readlines()]
 
 all_combos = [(idx, n, [c^n for c in line]) for idx, line in enumerate(lines) for n in range(256)]
 
 suspects = []
+# hunspell method breaks down here. but filtering out weird chars and 
+# somewhat weird chars (trial and error led to exact number) works
 super_special_chars = set(range(32)).difference([10])
 special_chars = super_special_chars.union(range(33, 65)).union(range(91, 97))
 for (idx, n, candidate) in all_combos:
@@ -48,3 +54,10 @@ for (idx, n, candidate) in all_combos:
             suspects.append((idx, n, bytes(candidate)))
 for (idx, n, candidate) in suspects:
     print(f"Line {idx} XOR'd with character {chr(n)} yields '{candidate.decode().strip()}'")
+
+# challenge 5
+
+s = """Burning 'em, if you ain't quick and nimble
+I go crazy when I hear a cymbal"""
+
+print(hexlify(bytes(ord(a) ^ ord(b) for (a,b) in zip(s, cycle('ICE')))))
